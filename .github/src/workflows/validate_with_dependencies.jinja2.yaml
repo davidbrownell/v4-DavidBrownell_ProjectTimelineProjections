@@ -1,0 +1,29 @@
+# ----------------------------------------------------------------------
+# |
+# |  validate_with_dependencies.yaml
+# |
+# |  David Brownell <db@DavidBrownell.com>
+# |      2023-05-22 15:28:04
+# |
+# ----------------------------------------------------------------------
+# |
+# |  Copyright David Brownell 2023
+# |  Distributed under the Boost Software License, Version 1.0. See
+# |  accompanying file LICENSE_1_0.txt or copy at
+# |  http://www.boost.org/LICENSE_1_0.txt.
+# |
+# ----------------------------------------------------------------------
+name: "[callable] Validates v4-DavidBrownell_ProjectTimelineProjections (and its dependencies)"
+
+on:
+  workflow_call:
+    inputs:
+      repo_branch:                          {type: string, required: true}
+
+jobs:
+  _e230e613-e2bb-4901-993a-6fd8a1d08ac5:
+    name: "v4-DavidBrownell_ProjectTimelineProjections"
+    uses: davidbrownell/v4-DavidBrownell_ProjectTimelineProjections/.github/workflows/validate.yaml@CI-v1
+    with:
+      repo_branch: ${{ inputs.repo_branch }}
+      bootstrap_branch_overrides: "v4-DavidBrownell_ProjectTimelineProjections:${{ inputs.repo_branch }}"

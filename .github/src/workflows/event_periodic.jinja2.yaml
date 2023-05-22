@@ -1,0 +1,22 @@
+name: "on periodic"
+run-name: ${{ github.run_number }} [${{ github.actor }}] on ${{ github.ref_name }}
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Once a day at 12am UTC
+
+jobs:
+  _3c58cac2-7bbc-4dd0-b0eb-40acefdc1f16:
+    name: "Validate (${{ github.ref_name }})"
+    uses: davidbrownell/v4-DavidBrownell_ProjectTimelineProjections/.github/workflows/validate.yaml@CI-v1
+    with:
+      repo_branch: ${{ github.ref_name }}
+
+  _af94ff4f-1756-44c7-aa78-8bc04eed3fff:
+    name: "Validate with Dependencies (${{ github.ref_name }})"
+    uses: davidbrownell/v4-DavidBrownell_ProjectTimelineProjections/.github/workflows/validate_with_dependencies.yaml@CI-v1
+    with:
+      repo_branch: ${{ github.ref_name }}
+
+    needs:
+      - _3c58cac2-7bbc-4dd0-b0eb-40acefdc1f16

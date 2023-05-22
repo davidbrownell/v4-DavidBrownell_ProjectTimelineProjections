@@ -1,0 +1,41 @@
+# ----------------------------------------------------------------------
+# |
+# |  event_on_pr.yaml
+# |
+# |  David Brownell <db@DavidBrownell.com>
+# |      2023-05-22 15:25:41
+# |
+# ----------------------------------------------------------------------
+# |
+# |  Copyright David Brownell 2023
+# |  Distributed under the Boost Software License, Version 1.0. See
+# |  accompanying file LICENSE_1_0.txt or copy at
+# |  http://www.boost.org/LICENSE_1_0.txt.
+# |
+# ----------------------------------------------------------------------
+name: "on pull request"
+run-name: "${{ github.run_number }} [${{ github.actor }}] ${{ github.head_ref }} -> ${{ github.base_ref }}"
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  _0e4e5638-cec7-4ebe-b7b0-b0f28179fd19:
+    name: "Validate (target: ${{ github.base_ref }})"
+    uses: davidbrownell/v4-DavidBrownell_ProjectTimelineProjections/.github/workflows/validate.yaml@CI-v1
+    with:
+      repo_branch: ${{ github.head_ref }}
+
+  _63cefd4b-ddcd-44ed-9087-06b95bdc407a:
+    name: "Validate Pull Request (target: ${{ github.base_ref }})"
+    uses: davidbrownell/v4-Common_Foundation/.github/workflows/callable_validate_pull_request.yaml@CI-v1
+    with:
+      job_name_prefix: "v4-DavidBrownell_ProjectTimelineProjections"
+      is_mixin_repository: false
+      repo_name: davidbrownell/v4-DavidBrownell_ProjectTimelineProjections
+      repo_branch: ${{ github.head_ref }}
+
+      os: ubuntu-latest
+      configuration: dev
