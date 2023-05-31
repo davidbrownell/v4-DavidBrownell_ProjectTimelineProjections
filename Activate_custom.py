@@ -13,6 +13,7 @@
 # |  http://www.boost.org/LICENSE_1_0.txt.
 # |
 # ----------------------------------------------------------------------
+# pylint: disable=invalid-name
 # pylint: disable=missing-module-docstring
 
 from pathlib import Path
