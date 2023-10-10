@@ -166,7 +166,7 @@ export function CreateTimelineEvents(
                 this._velocities.push(completed_size);
 
             const starting_index = (() => {
-                if(config.use_previous_n_sprints_for_average_velocity !== undefined && this.velocities.length > config.use_previous_n_sprints_for_average_velocity)
+                if(config.use_previous_n_sprints_for_average_velocity !== undefined && this._velocities.length > config.use_previous_n_sprints_for_average_velocity)
                     return this._velocities.length - config.use_previous_n_sprints_for_average_velocity;
 
                 return 0;
