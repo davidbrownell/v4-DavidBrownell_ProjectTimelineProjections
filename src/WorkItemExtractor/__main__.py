@@ -19,14 +19,13 @@ import importlib
 import json
 import sys
 import textwrap
-import traceback
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from functools import singledispatchmethod
 from pathlib import Path
-from typing import Any, Callable, cast, Optional, Union
+from typing import Any, cast, Optional
 
 import typer
 
@@ -38,11 +37,11 @@ from Common_Foundation.Streams.DoneManager import DoneManager, DoneManagerFlags
 from Common_Foundation import TextwrapEx
 from Common_Foundation import Types
 
-from Common_FoundationEx import ExecuteTasks
 from Common_FoundationEx.InflectEx import inflect
 
-from Common.Plugin import Plugin                        # type: ignore;  pylint: disable=import-error
-from Common.WorkItem import WorkItem, WorkItemChange    # type: ignore;  pylint: disable=import-error
+from Common.Plugin import Plugin                                                # type: ignore;  pylint: disable=import-error
+from GenerateEvents import GenerateEvents as GenerateEventsImpl                 # type: ignore;  pylint: disable=import-error
+from GenerateHierarchies import GenerateHierarchies as GenerateHierarchiesImpl  # type: ignore;  pylint: disable=import-error
 
 
 # ----------------------------------------------------------------------
@@ -159,12 +158,12 @@ app                                         = typer.Typer(
 
 # ----------------------------------------------------------------------
 @app.command(
-    "EntryPoint",
+    "GenerateHierarchies",
     epilog=_HelpEpilog(),
     help=__doc__,
     no_args_is_help=True,
 )
-def EntryPoint(
+def GenerateHierarchies(
     plugin_name: _PLUGIN_NAMES_ENUM=typer.Argument(..., help="Name of the plugin used to extract information about work items."),  # type: ignore
     url: str=typer.Argument(..., help="Url associated with work items to extract."),
     username: str=typer.Argument(..., help="Username associated with work items to extract."),
@@ -174,163 +173,157 @@ def EntryPoint(
     verbose: bool=typer.Option(False, "--verbose", help="Write verbose information to the terminal."),
     debug: bool=typer.Option(False, "--debug", help="Write debug information to the terminal."),
 ) -> None:
+    """Generates hierarchical information associated with one or more work items."""
+
     with DoneManager.CreateCommandLine(
         output_flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
     ) as dm:
-        plugin = _PLUGINS[plugin_name.value]
+        plugin = _InitPlugin(dm, plugin_name, url, username, api_token_or_filename)
+        if plugin is None:
+            return
 
-        if not url.endswith("/"):
-            url += "/"
-
-        # Read the api token
-        potential_filename = Path(api_token_or_filename)
-        if potential_filename.is_file():
-            with potential_filename.open() as f:
-                api_token = f.read().strip()
-        else:
-            api_token = api_token_or_filename
-
-        # Initialize the plugin
-        with dm.VerboseNested("Initialing '{}'...".format(plugin.name)) as verbose_dm:
-            plugin.Initialize(verbose_dm, url, username, api_token)
-            if dm.result != 0:
-                return
-
-        # Get the root work items (if not provided)
-        if not root_work_item_ids:
-            with dm.Nested(
-                "Extracting root work items...",
-                lambda: "{} found".format(inflect.no("work item", len(root_work_item_ids))),
-            ):
-                root_work_item_ids += plugin.GetRootWorkItems()
-
+        root_work_item_ids = _InitRootWorkItems(dm, plugin, root_work_item_ids)
         if not root_work_item_ids:
             return
 
-        # Get the change info
+        hierarchy_info = GenerateHierarchiesImpl(dm, plugin, root_work_item_ids)
+        if hierarchy_info is None:
+            return
 
-        # ----------------------------------------------------------------------
-        @dataclass(frozen=True)
-        class ExtractResultItem(object):
-            work_item: WorkItem
-            changes: list[WorkItemChange]
+        _WriteJson(dm, output_filename, hierarchy_info)
 
-        # ----------------------------------------------------------------------
-        @dataclass(frozen=True)
-        class ExtractResult(object):
-            root_work_item: WorkItem
-            children: list[ExtractResultItem]
 
-        # ----------------------------------------------------------------------
-        def Step1(
-            context: str,
-            on_simple_status_func: Callable[[str], None],
-        ) -> tuple[Optional[int], ExecuteTasks.TransformStep2FuncType[ExtractResult]]:
-            root_work_item_id = context
-            del context
+# ----------------------------------------------------------------------
+@app.command(
+    "GenerateEvents",
+    epilog=_HelpEpilog(),
+    help=__doc__,
+    no_args_is_help=True,
+)
+def GenerateEvents(
+    plugin_name: _PLUGIN_NAMES_ENUM=typer.Argument(..., help="Name of the plugin used to extract information about work items."),  # type: ignore
+    url: str=typer.Argument(..., help="Url associated with work items to extract."),
+    username: str=typer.Argument(..., help="Username associated with work items to extract."),
+    api_token_or_filename: str=typer.Argument(..., help="API token (or filename containing an API token) associated with the work items to extract."),
+    output_filename: Path=typer.Argument(..., dir_okay=False, help="Output filename for extracted information."),
+    root_work_item_ids: list[str]=typer.Option(None, "--id", help="Work item IDs associated with the root of one or more work item hierarchies."),
+    verbose: bool=typer.Option(False, "--verbose", help="Write verbose information to the terminal."),
+    debug: bool=typer.Option(False, "--debug", help="Write debug information to the terminal."),
+) -> None:
+    """Generates events for hierarchies associated with one or more work items."""
 
-            on_simple_status_func("Extracting work item info...")
-            root_work_item = plugin.GetWorkItem(root_work_item_id)
+    with DoneManager.CreateCommandLine(
+        output_flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
+    ) as dm:
+        plugin = _InitPlugin(dm, plugin_name, url, username, api_token_or_filename)
+        if plugin is None:
+            return
 
-            # TODO: Update title
+        root_work_item_ids = _InitRootWorkItems(dm, plugin, root_work_item_ids)
+        if not root_work_item_ids:
+            return
 
-            on_simple_status_func("Extracting hierarchy work items...")
-            hierarchy_work_item_ids: list[str] = list(plugin.EnumChildren(root_work_item_id))
+        hierarchy_info = GenerateHierarchiesImpl(dm, plugin, root_work_item_ids)
+        if hierarchy_info is None:
+            return
 
-            # ----------------------------------------------------------------------
-            def Execute(
-                status: ExecuteTasks.Status,
-            ) -> tuple[ExtractResult, Optional[str]]:
-                # Get information about the hierarchy
-                results: list[ExtractResultItem] = []
+        results = GenerateEventsImpl(dm, plugin, hierarchy_info)
 
-                for hierarchy_work_item_id in hierarchy_work_item_ids:
-                    index = len(results)
-
-                    status.OnProgress(index, "Extracting '{}'".format(hierarchy_work_item_id))
-                    work_item = plugin.GetWorkItem(hierarchy_work_item_id)
-
-                    status.OnProgress(index, "Extracting changes for '{}'".format(work_item.title))
-                    work_item_changes = list(plugin.GetWorkItemChanges(work_item))
-
-                    results.append(ExtractResultItem(work_item, work_item_changes))
-
-                return ExtractResult(root_work_item, results), None
-
-            # ----------------------------------------------------------------------
-
-            return len(hierarchy_work_item_ids) or None, Execute
-
-        # ----------------------------------------------------------------------
-
-        transform_results: list[Union[ExtractResult, Exception, None]] = ExecuteTasks.Transform(
+        _WriteJson(
             dm,
-            "Extracting...",
-            [
-                ExecuteTasks.TaskData(root_work_item_id, root_work_item_id)
-                for root_work_item_id in root_work_item_ids
-            ],
-            Step1,
-            return_exceptions=True,
+            output_filename,
+            {
+                "titles": results.titles,
+                "events": { str(k): v for k, v in results.events.items() },
+            },
         )
 
-        for root_work_item_id, result in zip(root_work_item_ids, transform_results):
-            assert result is not None
 
-            if isinstance(result, Exception):
-                if dm.is_debug:
-                    error = "\n".join(traceback.format_exception(result))
-                else:
-                    error = str(result)
+# ----------------------------------------------------------------------
+# |
+# |  Internal Functions
+# |
+# ----------------------------------------------------------------------
+def _InitPlugin(
+    dm: DoneManager,
+    plugin_name, # : _PLUGIN_NAMES_ENUM,
+    url: str,
+    username: str,
+    api_token_or_filename: str,
+) -> Optional[Plugin]:
+    plugin = _PLUGINS[plugin_name.value]
 
-                dm.WriteError(
-                    textwrap.dedent(
-                        """\
+    if not url.endswith("/"):
+        url += "/"
 
-                        Error extracting information for '{}':
-                            {}
-                        """,
-                    ).format(
-                        root_work_item_id,
-                        TextwrapEx.Indent(error.rstrip(), 4, skip_first_line=True),
-                    ),
-                )
+    potential_filename = Path(api_token_or_filename)
+    if potential_filename.is_file():
+        with potential_filename.open() as f:
+            api_token = f.read().strip()
+    else:
+        api_token = api_token_or_filename
 
-                continue
-
-            assert isinstance(result, ExtractResult), result
-
+    # Initialize the plugin
+    with dm.VerboseNested("Initializing '{}'...".format(plugin.name)) as verbose_dm:
+        plugin.Initialize(verbose_dm, url, username, api_token)
         if dm.result != 0:
-            return
+            return None
 
-        results = cast(list[ExtractResult], transform_results)
+    return plugin
 
-        with dm.Nested("Writing '{}'...".format(output_filename)):
-            output_filename.parent.mkdir(parents=True, exist_ok=True)
 
-            with output_filename.open("w", encoding="UTF-8") as f:
+# ----------------------------------------------------------------------
+def _InitRootWorkItems(
+    dm: DoneManager,
+    plugin: Plugin,
+    root_work_item_ids: list[str],
+) -> list[str]:
+    if not root_work_item_ids:
+        with dm.Nested(
+            "Extracting root work items...",
+            lambda: "{} found".format(inflect.no("work item", len(root_work_item_ids))),
+        ):
+            root_work_item_ids += plugin.GetRootWorkItems()
+
+    return root_work_item_ids
+
+
+# ----------------------------------------------------------------------
+def _WriteJson(
+    dm: DoneManager,
+    output_filename: Path,
+    content: Any,
+) -> None:
+    with dm.Nested("Writing '{}'...".format(output_filename)):
+        output_filename.parent.mkdir(parents=True, exist_ok=True)
+
+        with output_filename.open("w", encoding="UTF-8") as f:
+            # ----------------------------------------------------------------------
+            class Encoder(json.JSONEncoder):
                 # ----------------------------------------------------------------------
-                class Encoder(json.JSONEncoder):
-                    # ----------------------------------------------------------------------
-                    @singledispatchmethod
-                    def default(self, o) -> Any:
-                        return o.__dict__
+                @singledispatchmethod
+                def default(self, o) -> Any:
+                    return o.__dict__
 
-                    @default.register
-                    def _(self, o: datetime) -> Any:
-                        return o.isoformat()
+                @default.register
+                def _(self, o: date) -> Any:
+                    return o.isoformat()
 
-                    @default.register
-                    def _(self, o: Enum) -> Any:
-                        return o.name
+                @default.register
+                def _(self, o: datetime) -> Any:
+                    return o.isoformat()
 
-                # ----------------------------------------------------------------------
+                @default.register
+                def _(self, o: Enum) -> Any:
+                    return str(o)
 
-                json.dump(
-                    results,
-                    f,
-                    cls=Encoder,
-                )
+            # ----------------------------------------------------------------------
+
+            json.dump(
+                content,
+                f,
+                cls=Encoder,
+            )
 
 
 # ----------------------------------------------------------------------

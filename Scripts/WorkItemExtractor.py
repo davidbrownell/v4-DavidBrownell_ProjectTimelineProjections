@@ -25,7 +25,7 @@ from Common_Foundation import SubprocessEx
 
 # ----------------------------------------------------------------------
 def Execute(
-     args: list[str],
+    args: list[str],
 ) -> int:
     entry_point = PathEx.EnsureFile(Path(__file__).parent.parent / "src" / "WorkItemExtractor" / "__main__.py")
 

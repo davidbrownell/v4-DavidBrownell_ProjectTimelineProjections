@@ -27,6 +27,26 @@ from typing import Any, Callable, Generator, Iterable, Optional, Type as PythonT
 # |  Public Types
 # |
 # ----------------------------------------------------------------------
+@total_ordering
+class State(Enum):
+    """Status of a WorkItem"""
+
+    New                                     = auto()
+    Estimated                               = auto()
+    Pending                                 = auto()
+    Active                                  = auto()
+    Closed                                  = auto()
+    Removed                                 = auto()
+
+    # ----------------------------------------------------------------------
+    def __lt__(self, other) -> bool:
+        if self.__class__ is other.__class__:
+            return self.value < other.value
+
+        return NotImplemented
+
+
+# ----------------------------------------------------------------------
 @dataclass(frozen=True)
 class WorkItem(object):
     """A work item within a project management tool"""
@@ -36,7 +56,7 @@ class WorkItem(object):
     title: str
 
     dt: datetime
-    status: str
+    state: State
 
     type: str
 
@@ -164,7 +184,7 @@ def GenerateDailyWorkItemHistory(
     suppress_unsupported_field_errors: bool=False,
     title_field_name: Optional[str]="title",
     datetime_field_name: Optional[str]="datetime",
-    status_field_name: Optional[str]="status",
+    state_field_name: Optional[str]="state",
     type_field_name: Optional[str]="type",
     story_points_field_name: Optional[str]="story_points",
     tee_shirt_field_name: Optional[str]="tee_shirt_estimate",
@@ -195,11 +215,11 @@ def GenerateDailyWorkItemHistory(
         return work_item
 
     # ----------------------------------------------------------------------
-    def ChangeStatus(
+    def ChangeState(
         work_item: WorkItem,
         change: WorkItemChange,
     ) -> WorkItem:
-        object.__setattr__(work_item, "status", change.new_value)
+        object.__setattr__(work_item, "state", change.new_value)
         return work_item
 
     # ----------------------------------------------------------------------
@@ -214,7 +234,7 @@ def GenerateDailyWorkItemHistory(
                 work_item.work_item_id,
                 work_item.title,
                 work_item.dt,
-                work_item.status,
+                work_item.state,
                 work_item.type,
             )
 
@@ -284,8 +304,8 @@ def GenerateDailyWorkItemHistory(
         change_map[title_field_name] = ChangeTitle
     if datetime_field_name is not None:
         change_map[datetime_field_name] = ChangeDateTime
-    if status_field_name is not None:
-        change_map[status_field_name] = ChangeStatus
+    if state_field_name is not None:
+        change_map[state_field_name] = ChangeState
     if type_field_name is not None:
         change_map[type_field_name] = ChangeType
     if story_points_field_name is not None:
@@ -310,7 +330,7 @@ def GenerateDailyWorkItemHistory(
             work_item_or_id,
             "",
             DateToDateTime(changes[0].dt.date()),
-            "",
+            State.Unknown,
             "",
         )
     elif isinstance(work_item_or_id, WorkItem):

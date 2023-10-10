@@ -1,0 +1,20 @@
+$graph-min-height: 400px
+$graph-min-width: 300px
+
+$content-info-min-height: 600px
+$content-info-min-width: 300px
+$content-info-font-size: 12px
+
+@mixin content-info-mixin
+    font-size: $content-info-font-size
+
+    min-width: 300px
+    max-width: 300px
+
+    position: relative
+
+@mixin content-info-grid-mixin($col-widths)
+    display: grid
+    grid-template-columns: $col-widths
+    grid-gap: 2px 7px
+    align-items: center
