@@ -138,8 +138,9 @@ class Plugin(PluginBase):
         self,
         *,
         work_item_type: Optional[str]="Epic",
+        where_clauses: Optional[list[str]]=None,
     ) -> list[str]:
-        where_clauses: list[str] = []
+        where_clauses = where_clauses or []
 
         if work_item_type is not None:
             where_clauses.append("[System.WorkItemType] = '{}'".format(work_item_type))

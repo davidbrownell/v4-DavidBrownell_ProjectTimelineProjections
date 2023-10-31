@@ -39,6 +39,17 @@ from Common_Foundation import Types
 
 from Common_FoundationEx.InflectEx import inflect
 
+# Ensure that the appropriate path items are available in the scenario when the script is invoked
+# from a symbolic link.
+_parent_dir = Path(__file__).resolve().parent
+
+if _parent_dir not in sys.path:
+    sys.path.append(str(_parent_dir))
+
+del _parent_dir
+
+
+# ----------------------------------------------------------------------
 from Common.Plugin import Plugin                                                # type: ignore;  pylint: disable=import-error
 from GenerateEvents import GenerateEvents as GenerateEventsImpl                 # type: ignore;  pylint: disable=import-error
 from GenerateHierarchies import GenerateHierarchies as GenerateHierarchiesImpl  # type: ignore;  pylint: disable=import-error
@@ -46,7 +57,7 @@ from GenerateHierarchies import GenerateHierarchies as GenerateHierarchiesImpl  
 
 # ----------------------------------------------------------------------
 def _LoadPlugins() -> dict[str, Plugin]:
-    root_dir = PathEx.EnsureDir(Path(__file__).parent.parent)
+    root_dir = PathEx.EnsureDir(Path(__file__).resolve().parent.parent)
 
     sys.path.insert(0, str(root_dir))
     with ExitStack(lambda: sys.path.pop(0)):
@@ -160,7 +171,6 @@ app                                         = typer.Typer(
 @app.command(
     "GenerateHierarchies",
     epilog=_HelpEpilog(),
-    help=__doc__,
     no_args_is_help=True,
 )
 def GenerateHierarchies(
@@ -197,7 +207,6 @@ def GenerateHierarchies(
 @app.command(
     "GenerateEvents",
     epilog=_HelpEpilog(),
-    help=__doc__,
     no_args_is_help=True,
 )
 def GenerateEvents(
@@ -230,6 +239,38 @@ def GenerateEvents(
         results = GenerateEventsImpl(dm, plugin, hierarchy_info)
 
         _WriteJson(dm, output_filename, results)
+
+
+# ----------------------------------------------------------------------
+@app.command(
+    "GetRootWorkItems",
+    epilog=_HelpEpilog(),
+    no_args_is_help=True,
+)
+def GetRootWorkItems(
+    plugin_name: _PLUGIN_NAMES_ENUM=typer.Argument(..., help="Name of the plugin used to extract information about work items."),  # type: ignore
+    url: str=typer.Argument(..., help="Url associated with work items to extract."),
+    username: str=typer.Argument(..., help="Username associated with work items to extract."),
+    api_token_or_filename: str=typer.Argument(..., help="API token (or filename containing an API token) associated with the work items to extract."),
+    output_filename: Path=typer.Argument(..., dir_okay=False, help="Output filename for extracted information."),
+    where_clauses: list[str]=typer.Option(None, "--where-clause", help="Provide additional clauses to the query."),
+    verbose: bool=typer.Option(False, "--verbose", help="Write verbose information to the terminal."),
+    debug: bool=typer.Option(False, "--debug", help="Write debug information to the terminal."),
+) -> None:
+    """Extracts root-level work items."""
+
+    with DoneManager.CreateCommandLine(
+        output_flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
+    ) as dm:
+        plugin = _InitPlugin(dm, plugin_name, url, username, api_token_or_filename)
+        if plugin is None:
+            return
+
+        root_work_item_ids = plugin.GetRootWorkItems(
+            where_clauses=where_clauses,
+        )
+
+        _WriteJson(dm, output_filename, root_work_item_ids)
 
 
 # ----------------------------------------------------------------------
