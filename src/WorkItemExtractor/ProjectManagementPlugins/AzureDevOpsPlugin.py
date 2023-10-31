@@ -31,7 +31,7 @@ from Common_Foundation.Streams.DoneManager import DoneManager
 from Common_Foundation.Types import overridemethod
 
 from WorkItemExtractor.Common.Plugin import Plugin as PluginBase
-from WorkItemExtractor.Common.WorkItem import DaysWorkItem, HoursWorkItem, StoryPointsWorkItem, TeeShirtWorkItem, WorkItem, WorkItemChange
+from WorkItemExtractor.Common.WorkItem import DaysWorkItem, HoursWorkItem, State, StoryPointsWorkItem, TeeShirtWorkItem, WorkItem, WorkItemChange
 
 
 # ----------------------------------------------------------------------
@@ -49,9 +49,13 @@ class Plugin(PluginBase):
 
     # ----------------------------------------------------------------------
     # |  Public Data
-    name: ClassVar[str]                     = "AzureDevOps"
+    name: ClassVar[str]                                 = "AzureDevOps"
 
-    _session: requests.Session              = field(init=False)
+    epic_size_field_name: ClassVar[str]                 = "estimate"
+    feature_size_field_name: ClassVar[str]              = "story_points"
+    state_field_name: ClassVar[str]                     = "state"
+
+    _session: requests.Session                          = field(init=False)
 
     # ----------------------------------------------------------------------
     # |  Public Methods
@@ -203,7 +207,7 @@ class Plugin(PluginBase):
         response = self._session.get(
             "workitems/{}".format(work_item_id),
             params={
-                "fields": ",".join(set(self.__class__._ITEM_ATTRIBUTE_TO_ADO_MAP.values())),
+                "fields": ",".join(set(self.__class__._ITEM_ATTRIBUTE_TO_ADO_MAP.values())),  # pylint: disable=protected-access
             },
         )
 
@@ -236,8 +240,8 @@ class Plugin(PluginBase):
         return work_item_type(
             work_item_id,
             fields["System.Title"],
-            self.__class__._DatetimeFromString(fields["System.CreatedDate"]),  # pylint: disable=protected-access
-            fields["System.State"],
+            self.__class__._DatetimeFromString(fields["System.CreatedDate"]),   # pylint: disable=protected-access
+            self.__class__._ToState(fields["System.State"]),                    # pylint: disable=protected-access
             fields["System.WorkItemType"],
             effort,  # type: ignore
         )
@@ -320,12 +324,14 @@ class Plugin(PluginBase):
                                 assert previously_revised_date is not None, "previously_revised_date is None"
                                 revised_date = previously_revised_date
 
-                    yield WorkItemChange(
-                        revised_date,
-                        attribute_name,
-                        value["newValue"],
-                        value.get("oldValue", None),
-                    )
+                    new_value = value["newValue"]
+                    old_value = value.get("oldValue", None)
+
+                    if attribute_name in ["System.State", "state"]:
+                        new_value = self.__class__._ToState(value["newValue"])              # pylint: disable=protected-access
+                        old_value = self.__class__._ToState(value.get("oldValue", None))    # pylint: disable=protected-access
+
+                    yield WorkItemChange(revised_date, attribute_name, new_value, old_value)
 
     # ----------------------------------------------------------------------
     # |
@@ -343,7 +349,7 @@ class Plugin(PluginBase):
     ]                                       = {
         (WorkItem, "title"): "System.Title",
         (WorkItem, "dt"): "System.CreatedDate",
-        (WorkItem, "status"): "System.State",
+        (WorkItem, "state"): "System.State",
         (WorkItem, "type"): "System.WorkItemType",
         (StoryPointsWorkItem, "story_points"): "Microsoft.VSTS.Scheduling.Effort",
         (TeeShirtWorkItem, "estimate"): "Custom.EffortasTShirtSize",
@@ -358,4 +364,31 @@ class Plugin(PluginBase):
     def _DatetimeFromString(
         value: str,
     ) -> datetime:
-        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%f%z")
+        result = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S{}%z".format(".%f" if "." in value else ""))
+        if result.year == 9999:
+            raise ValueError("Invalid date")
+
+        return result
+
+    # ----------------------------------------------------------------------
+    _state_map: ClassVar[dict[str, State]]  = {
+        "New": State.New,
+        "Active": State.Active,
+        "Closed": State.Closed,
+        "Removed": State.Removed,
+        "Resolved": State.Closed,
+    }
+
+    @classmethod
+    def _ToState(
+        cls,
+        value: Optional[str],
+    ) -> Optional[State]:
+        if value is None:
+            return None
+
+        state = cls._state_map.get(value, None)
+        if state is not None:
+            return state
+
+        assert False, state

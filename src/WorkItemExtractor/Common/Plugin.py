@@ -32,6 +32,10 @@ class Plugin(ABC):
     # ----------------------------------------------------------------------
     name: str
 
+    epic_size_field_name: str
+    feature_size_field_name: str
+    state_field_name: str
+
     # ----------------------------------------------------------------------
     @abstractmethod
     def Initialize(
