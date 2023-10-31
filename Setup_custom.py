@@ -23,6 +23,7 @@ from typing import Dict, List, Optional, Union
 
 from semantic_version import Version as SemVer          # pylint: disable=unused-import
 
+from Common_Foundation import PathEx                                        # type: ignore  # pylint: disable=import-error,unused-import
 from Common_Foundation.Shell.All import CurrentShell                        # type: ignore  # pylint: disable=import-error,unused-import
 from Common_Foundation.Shell import Commands                                # type: ignore  # pylint: disable=import-error,unused-import
 from Common_Foundation.Streams.DoneManager import DoneManager               # type: ignore  # pylint: disable=import-error,unused-import
@@ -114,6 +115,14 @@ def GetCustomActions(
             foundation_root_file,
             remove_existing=True,
             relative_path=True,
+        ),
+    )
+
+    # Create a link to WorkItemExtractor
+    commands.append(
+        Commands.SymbolicLink(
+            PathEx.EnsureExists(root_dir / "Scripts") / "WorkItemExtractor.py",
+            PathEx.EnsureExists(root_dir / "src" / "WorkItemExtractor" / "__main__.py"),
         ),
     )
 
