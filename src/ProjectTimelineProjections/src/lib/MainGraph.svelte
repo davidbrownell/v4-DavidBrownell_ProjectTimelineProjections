@@ -1366,6 +1366,10 @@
         .map-section
             flex-grow: 0.5
 
+            // TODO: Do not display the map until zooming has been implemented
+            .graph
+                display: none
+
             .data
                 flex-wrap: wrap
 

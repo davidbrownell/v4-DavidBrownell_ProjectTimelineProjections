@@ -45,6 +45,7 @@ class Plugin(PluginBase):
         "Epic": TeeShirtWorkItem,
         "Feature": StoryPointsWorkItem,
         "Task": DaysWorkItem,
+        "User Story": StoryPointsWorkItem,
     }
 
     # ----------------------------------------------------------------------
@@ -205,10 +206,19 @@ class Plugin(PluginBase):
         if work_item_mapping is None:
             work_item_mapping = self.__class__.DefaultWorkItemTypeMapping
 
+        query_fields: set[str] = set()
+
+        for field_values in self.__class__._ITEM_ATTRIBUTE_TO_ADO_MAP.values():  # pylint: disable=protected-access
+            if isinstance(field_values, str):
+                field_values = [field_values, ]
+
+            for field_value in field_values:
+                query_fields.add(field_value)
+
         response = self._session.get(
             "workitems/{}".format(work_item_id),
             params={
-                "fields": ",".join(set(self.__class__._ITEM_ATTRIBUTE_TO_ADO_MAP.values())),  # pylint: disable=protected-access
+                "fields": ",".join(query_fields),
             },
         )
 
@@ -228,15 +238,20 @@ class Plugin(PluginBase):
 
         if work_item_type is TeeShirtWorkItem:
             effort = fields.get('Custom.EffortasTShirtSize', None)
-            if effort is None:
-                raise Exception("The work item {} should have the field 'Custom.EffortasTShirtSize'.".format(id))
-
-            effort = TeeShirtWorkItem.Size.FromString(effort)
+            if effort is not None:
+                effort = TeeShirtWorkItem.Size.FromString(effort)
 
         else:
-            effort = fields.get("Microsoft.VSTS.Scheduling.Effort", None)
-            if effort is not None:
-                effort = float(effort)
+            effort = None
+
+            for potential_field in [
+                "Microsoft.VSTS.Scheduling.Effort",
+                "Microsoft.VSTS.Scheduling.StoryPoints",
+            ]:
+                potential_effort = fields.get(potential_field, None)
+                if potential_effort is not None:
+                    effort = float(potential_effort)
+                    break
 
         return work_item_type(
             work_item_id,
@@ -264,12 +279,17 @@ class Plugin(PluginBase):
         def GetTypeAttributeName(
             ado_value: str,
         ) -> Optional[str]:
-            for (matching_type, attribute_name), matching_ado_value in self.__class__._ITEM_ATTRIBUTE_TO_ADO_MAP.items():  # pylint: disable=protected-access
+            for (matching_type, attribute_name), matching_ado_value_or_values in self.__class__._ITEM_ATTRIBUTE_TO_ADO_MAP.items():  # pylint: disable=protected-access
+
                 if matching_type is not WorkItem and current_type != matching_type:
                     continue
 
-                if ado_value == matching_ado_value:
-                    return attribute_name
+                if isinstance(matching_ado_value_or_values, str):
+                    if ado_value == matching_ado_value_or_values:
+                        return attribute_name
+                else:
+                    if ado_value in matching_ado_value_or_values:
+                        return attribute_name
 
             return None
 
@@ -325,7 +345,7 @@ class Plugin(PluginBase):
                                 assert previously_revised_date is not None, "previously_revised_date is None"
                                 revised_date = previously_revised_date
 
-                    new_value = value["newValue"]
+                    new_value = value.get("newValue", None)
                     old_value = value.get("oldValue", None)
 
                     if attribute_name in ["System.State", "state"]:
@@ -345,14 +365,14 @@ class Plugin(PluginBase):
                 PythonType[WorkItem],       # Matching type
                 str,                        # Attribute name for type
             ],
-            str,                            # ADO Type
+            str | list[str],                # ADO Type or Types
         ]
     ]                                       = {
         (WorkItem, "title"): "System.Title",
         (WorkItem, "dt"): "System.CreatedDate",
         (WorkItem, "state"): "System.State",
         (WorkItem, "type"): "System.WorkItemType",
-        (StoryPointsWorkItem, "story_points"): "Microsoft.VSTS.Scheduling.Effort",
+        (StoryPointsWorkItem, "story_points"): ["Microsoft.VSTS.Scheduling.Effort", "Microsoft.VSTS.Scheduling.StoryPoints"],
         (TeeShirtWorkItem, "estimate"): "Custom.EffortasTShirtSize",
         (DaysWorkItem, "days"): "Microsoft.VSTS.Scheduling.Effort",
         (HoursWorkItem, "hours"): "Microsoft.VSTS.Scheduling.Effort",
