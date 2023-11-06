@@ -249,6 +249,12 @@ def GenerateEvents(
                 ),
             )
 
+    # Sort titles
+    title_keys = list(titles.keys())
+    title_keys.sort()
+
+    titles = { key: titles[key] for key in title_keys }
+
     return GenerateEventsResult(titles, all_event_results)
 
 
