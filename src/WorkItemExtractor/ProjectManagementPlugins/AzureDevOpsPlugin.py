@@ -351,6 +351,11 @@ class Plugin(PluginBase):
                     if attribute_name in ["System.State", "state"]:
                         new_value = self.__class__._ToState(value["newValue"])              # pylint: disable=protected-access
                         old_value = self.__class__._ToState(value.get("oldValue", None))    # pylint: disable=protected-access
+                    elif isinstance(work_item, TeeShirtWorkItem) and attribute_name == "estimate":
+                        if new_value is not None:
+                            new_value = TeeShirtWorkItem.Size.FromString(new_value)
+                        if old_value is not None:
+                            old_value = TeeShirtWorkItem.Size.FromString(old_value)
 
                     yield WorkItemChange(revised_date, attribute_name, new_value, old_value)
 
