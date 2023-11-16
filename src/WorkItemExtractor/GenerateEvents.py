@@ -141,7 +141,16 @@ def GenerateEvents(
                         change.new_value,
                         None,
                     )
+                elif change.field == plugin.epic_size_field_name:
+                    assert work_item_id == epic_id, (work_item_id, epic_id)
 
+                    work_item_data = _WorkItemData(
+                        change.dt,
+                        epic_id,
+                        None,
+                        change.new_value,
+                        None,
+                    )
                 elif change.field == plugin.state_field_name:
                     work_item_data = _WorkItemData(
                         change.dt,
@@ -230,11 +239,11 @@ def GenerateEvents(
                 else:
                     setattr(estimated_num, attribute_name, getattr(estimated_num, attribute_name) + 1)
 
-                    # We only update the sizes for features
-                    assert estimated_size is not None
-                    assert work_item_data.feature_id is not None, work_item_data
+                    if estimated_size is not None:
+                        # We only update the sizes for features
+                        assert work_item_data.feature_id is not None, work_item_data
 
-                    setattr(estimated_size, attribute_name, getattr(estimated_size, attribute_name) + work_item_data.size)
+                        setattr(estimated_size, attribute_name, getattr(estimated_size, attribute_name) + work_item_data.size)
 
             all_event_results.append(
                 Event(
