@@ -586,15 +586,15 @@
                 let graph_info of [
                     {
                         cls: "min-velocity",
-                        y_value_func: (v: StatsInfo<number> | undefined) => v?.min,
+                        y_value_func: (v: StatsInfo<number> | undefined) => v?.min || 0,
                     },
                     {
                         cls: "average-velocity",
-                        y_value_func: (v: StatsInfo<number> | undefined) => v?.average,
+                        y_value_func: (v: StatsInfo<number> | undefined) => v?.average || 0,
                     },
                     {
                         cls: "max-velocity",
-                        y_value_func: (v: StatsInfo<number> | undefined) => v?.max,
+                        y_value_func: (v: StatsInfo<number> | undefined) => v?.max || 0,
                     },
                 ]
             ) {

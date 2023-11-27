@@ -13,7 +13,6 @@
 // |  http://www.boost.org/LICENSE_1_0.txt.
 // |
 // ----------------------------------------------------------------------
-import { createEventDispatcher } from 'svelte';
 import { Configuration, StatsInfo } from './SharedTypes';
 
 
@@ -236,13 +235,24 @@ export function CreateTimelineEvents(
             date,
         ).getTime() === date.getTime();
 
-        if(is_sprint_boundary)
+        let current_sprint_boundary: Date;
+
+        if(is_sprint_boundary) {
             velocity_calculator.UpdateVelocity(working_event.features_estimated_size.completed);
+            current_sprint_boundary = date;
+        }
+        else {
+            current_sprint_boundary = NextSprintBoundary(
+                config.any_sprint_boundary,
+                config.days_in_sprint,
+                IncrementDate(date, -config.days_in_sprint),
+            );
+        }
 
         return working_event.CreateTimelineEventItem(
             date,
             is_sprint_boundary,
-            config.any_sprint_boundary,
+            current_sprint_boundary,
             config.days_in_sprint,
             config.unestimated_epic_size,
             config.unestimated_feature_size,
@@ -348,7 +358,7 @@ class _WorkingEvent {
     public CreateTimelineEventItem(
         date: Date,
         is_sprint_boundary: boolean,
-        any_sprint_boundary: Date,
+        current_sprint_boundary: Date,
         days_in_sprint: number,
         unestimated_epic_size: number,
         unestimated_feature_size: number,
@@ -356,8 +366,6 @@ class _WorkingEvent {
         velocities: StatsInfo<number> | undefined,
         changes: EventChange[],
     ): TimelineEventItem {
-        const next_sprint_start = _AlignToSprintBoundary(any_sprint_boundary, days_in_sprint, date);
-
         const estimated_remaining_size = (
             this.features_estimated_size.created
             + this.features_estimated_size.pending
@@ -379,7 +387,7 @@ class _WorkingEvent {
         const unestimated_remaining_size = unestimated_epics_size + unestimated_features_size;
 
         let unestimated_projections = this._ProjectDates(
-            next_sprint_start,
+            current_sprint_boundary,
             days_in_sprint,
             unestimated_remaining_size * unestimated_velocity_factors[0],
             velocities,
@@ -387,7 +395,7 @@ class _WorkingEvent {
 
         if(unestimated_projections !== undefined) {
             const max_unestimated_projections = this._ProjectDates(
-                next_sprint_start,
+                current_sprint_boundary,
                 days_in_sprint,
                 unestimated_remaining_size * unestimated_velocity_factors[1],
                 velocities,
@@ -402,7 +410,7 @@ class _WorkingEvent {
             average_date.setTime((unestimated_projections.average.getTime() + max_unestimated_projections.average.getTime()) / 2);
             average_date.setHours(0, 0, 0, 0);
 
-            average_date = _AlignToSprintBoundary(next_sprint_start, days_in_sprint, average_date);
+            average_date = _AlignToSprintBoundary(current_sprint_boundary, days_in_sprint, average_date);
 
             unestimated_projections = new StatsInfo<Date>(
                 unestimated_projections.min,
@@ -415,7 +423,7 @@ class _WorkingEvent {
             date,
             is_sprint_boundary,
             this._ProjectDates(
-                next_sprint_start,
+                current_sprint_boundary,
                 days_in_sprint,
                 estimated_remaining_size,
                 velocities,
