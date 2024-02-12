@@ -28,6 +28,7 @@ styles: dict[str, str] = {
     "estimated_color": "gray",
     "unestimated_color": "lightgray",
 
+    "velocity_color": "black",
     "min_velocity_color": "red",
     "average_velocity_color": "blue",
     "max_velocity_color": "green",
@@ -131,6 +132,7 @@ styles: dict[str, str] = {
     export let completed_color: string = "blue";
     export let estimated_color: string = "gray";
     export let unestimated_color: string = "lightgray";
+    export let velocity_color: string = "black";
     export let min_velocity_color: string = "red";
     export let average_velocity_color: string = "blue";
     export let max_velocity_color: string = "green";
@@ -174,6 +176,7 @@ styles: dict[str, str] = {
                     `--completed_color:${completed_color}`,
                     `--estimated_color:${estimated_color}`,
                     `--unestimated_color:${unestimated_color}`,
+                    `--velocity_color:${velocity_color}`,
                     `--min_velocity_color:${min_velocity_color}`,
                     `--average_velocity_color:${average_velocity_color}`,
                     `--max_velocity_color:${max_velocity_color}`,
@@ -505,6 +508,11 @@ styles: dict[str, str] = {
 
         :global(.remaining-projection)
             fill: var(--remaining_projection_color)
+
+        :global(.velocity)
+            stroke: var(--velocity_color)
+            stroke-width: var(--velocity_width)
+            fill: none
 
         :global(.min-velocity)
             stroke: var(--min_velocity_color)
