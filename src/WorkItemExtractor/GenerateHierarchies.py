@@ -75,6 +75,8 @@ def GenerateHierarchies(
         ) -> HierarchyResult:
             status.OnProgress(0, "Extracting work item info...")
             root_work_item = plugin.GetWorkItem(root_work_item_id)
+            if root_work_item is None:
+                raise Exception("Root work item is None")
 
             status.OnProgress(0, "Extracting work item changes...")
             root_work_item_changes = list(plugin.GetWorkItemChanges(root_work_item))
@@ -86,6 +88,8 @@ def GenerateHierarchies(
 
                 status.OnProgress(index, "Extracting '{}'...".format(hierarchy_work_item_id))
                 work_item = plugin.GetWorkItem(hierarchy_work_item_id)
+                if work_item is None:
+                    continue
 
                 status.OnProgress(index, "Extracting '{}' changes...".format(hierarchy_work_item_id))
                 work_item_changes = list(plugin.GetWorkItemChanges(work_item))

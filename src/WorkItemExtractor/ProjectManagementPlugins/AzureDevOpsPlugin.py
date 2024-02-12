@@ -41,7 +41,8 @@ class Plugin(PluginBase):
 
     # ----------------------------------------------------------------------
     # |  Public Types
-    DefaultWorkItemTypeMapping: ClassVar[dict[str, PythonType[WorkItem]]]   = {
+    DefaultWorkItemTypeMapping: ClassVar[dict[str, Optional[PythonType[WorkItem]]]] = {
+        "Bug": None,
         "Epic": TeeShirtWorkItem,
         "Feature": StoryPointsWorkItem,
         "Task": DaysWorkItem,
@@ -201,8 +202,8 @@ class Plugin(PluginBase):
         self,
         work_item_id: str,
         *,
-        work_item_mapping: Optional[dict[str, PythonType[WorkItem]]]=None,
-    ) -> WorkItem:
+        work_item_mapping: Optional[dict[str, Optional[PythonType[WorkItem]]]]=None,
+    ) -> Optional[WorkItem]:
         if work_item_mapping is None:
             work_item_mapping = self.__class__.DefaultWorkItemTypeMapping
 
@@ -227,8 +228,14 @@ class Plugin(PluginBase):
 
         fields = response["fields"]
 
-        work_item_type = work_item_mapping.get(fields["System.WorkItemType"], None)
-        if work_item_type is None:
+        # ----------------------------------------------------------------------
+        class DoesNotExist(object):
+            pass
+
+        # ----------------------------------------------------------------------
+
+        work_item_type = work_item_mapping.get(fields["System.WorkItemType"], DoesNotExist())
+        if isinstance(work_item_type, DoesNotExist):
             raise Exception(
                 "The work item type '{}' (Id: {}) is not a recognized work item type.".format(
                     fields["System.WorkItemType"],
@@ -236,6 +243,9 @@ class Plugin(PluginBase):
                 ),
             )
 
+        if work_item_type is None:
+            return None
+        
         if work_item_type is TeeShirtWorkItem:
             effort = fields.get('Custom.EffortasTShirtSize', None)
             if effort is not None:
@@ -268,7 +278,7 @@ class Plugin(PluginBase):
         self,
         work_item: WorkItem,
         *,
-        work_item_mapping: Optional[dict[str, PythonType[WorkItem]]]=None,
+        work_item_mapping: Optional[dict[str, Optional[PythonType[WorkItem]]]]=None,
     ) -> Generator[WorkItemChange, None, None]:
         if work_item_mapping is None:
             work_item_mapping = self.__class__.DefaultWorkItemTypeMapping
