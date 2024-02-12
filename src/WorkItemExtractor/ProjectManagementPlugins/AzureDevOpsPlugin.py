@@ -190,7 +190,7 @@ class Plugin(PluginBase):
         response.raise_for_status()
         response = response.json()
 
-        for relationship in response["relations"]:
+        for relationship in response.get("relations", []):
             if relationship["attributes"]["name"] != "Child":
                 continue
 
