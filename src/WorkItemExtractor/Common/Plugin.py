@@ -17,7 +17,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Generator
+from typing import Generator, Optional
 
 from Common_Foundation.Streams.DoneManager import DoneManager
 
@@ -71,7 +71,7 @@ class Plugin(ABC):
         self,
         work_item_id: str,
         **kwargs,
-    ) -> WorkItem:
+    ) -> Optional[WorkItem]:
         """Returns info about the work item and its history"""
         raise Exception("Abstract method")  # pragma: no cover
 
