@@ -165,7 +165,7 @@
                     max_velocity = d3.max(
                         [
                             max_velocity,
-                            event.velocity?.max,
+                            event.velocity_stats?.max,
                         ],
                     );
 
@@ -586,21 +586,25 @@
                 let graph_info of [
                     {
                         cls: "min-velocity",
-                        y_value_func: (v: StatsInfo<number> | undefined) => v?.min || 0,
+                        y_value_func: (event: TimelineEventItem) => event.velocity_stats?.min || 0,
                     },
                     {
                         cls: "average-velocity",
-                        y_value_func: (v: StatsInfo<number> | undefined) => v?.average || 0,
+                        y_value_func: (event: TimelineEventItem) => event.velocity_stats?.average || 0,
                     },
                     {
                         cls: "max-velocity",
-                        y_value_func: (v: StatsInfo<number> | undefined) => v?.max || 0,
+                        y_value_func: (event: TimelineEventItem) => event.velocity_stats?.max || 0,
+                    },
+                    {
+                        cls: "velocity",
+                        y_value_func: (event: TimelineEventItem) => event.velocity || 0,
                     },
                 ]
             ) {
                 const calc = d3.line()
                     .x((event: TimelineEventItem) => _velocities_x_scalar(event.date))
-                    .y((event: TimelineEventItem) => _velocities_y_scalar(graph_info.y_value_func(event.velocity)))
+                    .y((event: TimelineEventItem) => _velocities_y_scalar(graph_info.y_value_func(event)))
                 ;
 
                 velocities_graph.selectAll(`path.${graph_info.cls}`)
@@ -1194,14 +1198,16 @@
             <div class=data>
                 <table>
                     <tr>
+                        <th>Velocity</th>
                         <th>Min Velocity</th>
                         <th>Average Velocity</th>
                         <th>Max Velocity</th>
                     </tr>
                     <tr>
-                        <td>{_DisplayVelocityValue((_highlighted_event || _displayed_event)?.velocity?.min)}</td>
-                        <td>{_DisplayVelocityValue((_highlighted_event || _displayed_event)?.velocity?.average)}</td>
-                        <td>{_DisplayVelocityValue((_highlighted_event || _displayed_event)?.velocity?.max)}</td>
+                        <td>{_DisplayVelocityValue((_highlighted_event || _displayed_event)?.velocity)}</td>
+                        <td>{_DisplayVelocityValue((_highlighted_event || _displayed_event)?.velocity_stats?.min)}</td>
+                        <td>{_DisplayVelocityValue((_highlighted_event || _displayed_event)?.velocity_stats?.average)}</td>
+                        <td>{_DisplayVelocityValue((_highlighted_event || _displayed_event)?.velocity_stats?.max)}</td>
                     </tr>
                 </table>
             </div>

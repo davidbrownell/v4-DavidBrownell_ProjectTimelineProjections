@@ -72,6 +72,7 @@
 
         {#each [
             {cls: "projection-average-date", label: "Average Projected Date:"},
+            {cls: "velocity", label: "Velocity:"},
             {cls: "average-velocity", label: "Average Velocity:"},
             {cls: "min-velocity", label: "Min Velocity:"},
             {cls: "max-velocity", label: "Max Velocity:"},

@@ -65,7 +65,8 @@ export class TimelineEventItem {
         public readonly estimated: StatsInfo<Date> | undefined,
         public readonly estimated_and_unestimated: StatsInfo<Date> | undefined,
 
-        public readonly velocity: StatsInfo<number> | undefined,
+        public readonly velocity: number | undefined,
+        public readonly velocity_stats: StatsInfo<number> | undefined,
 
         public readonly epics_estimated_num: EventInfo,
         public readonly epics_unestimated_num: EventInfo,
@@ -147,25 +148,25 @@ export function CreateTimelineEvents(
 
     // ----------------------------------------------------------------------
     class VelocityCalculator {
-        private _velocities: Array<number | undefined> = [];
         private _prev_completed_size: number | undefined = undefined;
 
-        public calculated_velocity: StatsInfo<number> | undefined = undefined;
+        public velocities: Array<number | undefined> = [];
+        public calculated_velocity_stats: StatsInfo<number> | undefined = undefined;
 
         // ----------------------------------------------------------------------
         public UpdateVelocity(
             completed_size: number | undefined,
         ) {
             if(completed_size !== undefined) {
-                this._velocities.push(completed_size - (this._prev_completed_size || 0));
+                this.velocities.push(completed_size - (this._prev_completed_size || 0));
                 this._prev_completed_size = completed_size;
             }
             else
-                this._velocities.push(completed_size);
+                this.velocities.push(completed_size);
 
             const starting_index = (() => {
-                if(config.use_previous_n_sprints_for_average_velocity !== undefined && this._velocities.length > config.use_previous_n_sprints_for_average_velocity)
-                    return this._velocities.length - config.use_previous_n_sprints_for_average_velocity;
+                if(config.use_previous_n_sprints_for_average_velocity !== undefined && this.velocities.length > config.use_previous_n_sprints_for_average_velocity)
+                    return this.velocities.length - config.use_previous_n_sprints_for_average_velocity;
 
                 return 0;
             })();
@@ -175,8 +176,8 @@ export function CreateTimelineEvents(
             let total_velocity = 0;
             let num_velocities = 0;
 
-            for(let index = starting_index; index !== this._velocities.length; ++index) {
-                const velocity = this._velocities[index];
+            for(let index = starting_index; index !== this.velocities.length; ++index) {
+                const velocity = this.velocities[index];
 
                 if(velocity === undefined || velocity === 0)
                     continue;
@@ -195,7 +196,7 @@ export function CreateTimelineEvents(
 
             const average_velocity = num_velocities ? total_velocity / num_velocities : 0;
 
-            this.calculated_velocity = new StatsInfo<number>(min_velocity, average_velocity, max_velocity);
+            this.calculated_velocity_stats = new StatsInfo<number>(min_velocity, average_velocity, max_velocity);
         }
     };
 
@@ -257,6 +258,7 @@ export function CreateTimelineEvents(
             config.unestimated_epic_size,
             config.unestimated_feature_size,
             config.unestimated_velocity_factors,
+            velocity_calculator.velocities[velocity_calculator.velocities.length - 1],
             (() => {
                 if(
                     config.velocity_overrides
@@ -264,7 +266,7 @@ export function CreateTimelineEvents(
                 )
                     return config.velocity_overrides;
 
-                return velocity_calculator.calculated_velocity;
+                return velocity_calculator.calculated_velocity_stats;
             })(),
             working_event_changes,
         );
@@ -363,7 +365,8 @@ class _WorkingEvent {
         unestimated_epic_size: number,
         unestimated_feature_size: number,
         unestimated_velocity_factors: [number, number], // min, max
-        velocities: StatsInfo<number> | undefined,
+        velocity: number | undefined,
+        velocity_stats: StatsInfo<number> | undefined,
         changes: EventChange[],
     ): TimelineEventItem {
         const estimated_remaining_size = (
@@ -390,7 +393,7 @@ class _WorkingEvent {
             current_sprint_boundary,
             days_in_sprint,
             unestimated_remaining_size * unestimated_velocity_factors[0],
-            velocities,
+            velocity_stats,
         );
 
         if(unestimated_projections !== undefined) {
@@ -398,7 +401,7 @@ class _WorkingEvent {
                 current_sprint_boundary,
                 days_in_sprint,
                 unestimated_remaining_size * unestimated_velocity_factors[1],
-                velocities,
+                velocity_stats,
             );
 
             if(max_unestimated_projections === undefined)
@@ -426,10 +429,11 @@ class _WorkingEvent {
                 current_sprint_boundary,
                 days_in_sprint,
                 estimated_remaining_size,
-                velocities,
+                velocity_stats,
             ),
             unestimated_projections,
-            velocities,
+            velocity,
+            velocity_stats,
             this.epics_estimated_num,
             this.epics_unestimated_num,
             unestimated_epics_size,
@@ -450,24 +454,24 @@ class _WorkingEvent {
         next_sprint_start: Date,
         days_in_sprint: number,
         size: number,
-        velocities: StatsInfo<number> | undefined,
+        velocity_stats: StatsInfo<number> | undefined,
     ): StatsInfo<Date> | undefined {
-        if(velocities === undefined)
+        if(velocity_stats === undefined)
             return undefined;
 
         if(size === 0)
             return undefined;
 
         if(
-            velocities.min === 0
-            && velocities.average === 0
-            && velocities.max === 0
+            velocity_stats.min === 0
+            && velocity_stats.average === 0
+            && velocity_stats.max === 0
         )
             return undefined;
 
-        const min_date = this._ProjectDate(next_sprint_start, days_in_sprint, size, velocities.max);
-        const max_date = this._ProjectDate(next_sprint_start, days_in_sprint, size, velocities.min);
-        const average_date = this._ProjectDate(next_sprint_start, days_in_sprint, size, velocities.average);
+        const min_date = this._ProjectDate(next_sprint_start, days_in_sprint, size, velocity_stats.max);
+        const max_date = this._ProjectDate(next_sprint_start, days_in_sprint, size, velocity_stats.min);
+        const average_date = this._ProjectDate(next_sprint_start, days_in_sprint, size, velocity_stats.average);
 
         return new StatsInfo<Date>(min_date, average_date, max_date);
     }
